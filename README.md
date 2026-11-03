@@ -1,130 +1,180 @@
+# Film Manager API
 
-# Film Manager Service
+RESTful API backend for the Film Manager service, developed for the **Distributed Systems Programming** course at Politecnico di Torino.
 
-## Overview
+The service provides film management, reviews assignments, user authentication, and pagination, following REST architectural principles and **HATEOAS**. The API design adopts a **contract-first** approach centered around an OpenAPI 3.0 specification.
 
-This project implements the REST APIs for the interaction with the Film Manager service.
+---
 
-The project uses an OpenAPI specification (`api/openapi.json`) as the blueprint for the REST interface. OpenAPI Generator is used to automatically generate the routing layer that connects the API operations to the application controllers.
+## Architecture & Request Flow
 
-## Requirements
+The application is structured into clearly separated layers, designed around a **contract-first** approach:
 
-The following software is required:
+```mermaid
+flowchart TD
+    Client["Client (Postman / Browser)"]
+    OpenAPI["OpenAPI Contract<br/>api/openapi.json"]
+    GenLayer["Generated Adapter / Routing Layer<br/>generated/controllers/*Controller.js"]
+    Validators["Validation & Security Layer<br/>express-openapi-validator & passport"]
+    Controllers["Application Controllers<br/>controllers/*.js<br/>(HATEOAS Link Injection)"]
+    Services["Service Layer<br/>service/*Service.js<br/>(Business Logic)"]
+    DB["Database Layer<br/>components/db.js (SQLite databaseV1.db)"]
 
-- Node.js 22
-- npm
-- Java
-
-On the LabInf machines, use `nvm` to install and select the required Node.js version:
-
-```bash
-nvm install 22
+    OpenAPI -.->|"npm run generate"| GenLayer
+    Client -->|"1. HTTP Request"| Validators
+    Validators -->|"2. Forward Validated Request"| GenLayer
+    GenLayer -->|"3. Delegate to Implementation"| Controllers
+    Controllers -->|"4. Execute Business Operation"| Services
+    Services -->|"5. SQL Queries"| DB
+    DB -->|"6. Rows / Raw Data"| Services
+    Services -->|"7. Domain Entities"| Controllers
+    Controllers -->|"8. HTTP Response + HATEOAS JSON"| Client
 ```
 
-Then install the project dependencies:
+### Layer Responsibilities
 
-```bash
-npm ci
-```
+1. **OpenAPI Contract (`api/openapi.json`)**:
+   - Single source of truth defining routes, HTTP methods, parameters, request/response schemas, and security requirements (`cookieAuth`).
+   - Used by `openapi-generator-cli` with custom Mustache templates (`openapi-templates/`) to generate the routing stubs.
 
-## Generating the Server Stub
+2. **Generated Adapter Layer (`generated/`)**:
+   - Automatically generated code that acts as a bridge between the Express router / OpenAPI Validator and the actual business implementation.
+   - Maps each OpenAPI `operationId` to the matching controller function.
+   - *Note*: This folder is generated automatically (`npm run generate`) and should never be modified manually.
 
-The server routing layer is generated directly from the OpenAPI specification using [OpenAPI Generator](https://openapi-generator.tech/).
+3. **Validation & Security Layer (`express-openapi-validator` + `passport-config.js`)**:
+   - Intercepts requests before reaching controllers.
+   - Validates request payloads and query parameters against the OpenAPI schema.
+   - Validates cookie-based sessions for protected endpoints via Passport (`cookieAuth`).
 
-Run:
+4. **Controllers Layer (`controllers/`)**:
+   - Receives the request from the generated adapter layer.
+   - Handles HTTP-level concerns: status codes, response headers, parameter unpacking.
+   - Enriches data with **HATEOAS** links (`self`, related resources, and RFC 5988 pagination links) using `controllers/link.js`.
+   - Sends the formatted JSON payload to the client via `utils/writer.js`.
 
-```bash
-npm run generate
-```
+5. **Service Layer (`service/`)**:
+   - Implements the core business logic, independent of HTTP concepts (does not access `req` or `res`).
+   - Enforces domain rules, checks permissions, and handles application logic.
+   - Interacts with the database layer and transforms raw rows into domain models.
 
-The generated files are placed in the `generated/` folder.
+6. **Database Layer (`components/db.js` & `database/databaseV1.db`)**:
+   - SQLite persistent storage with foreign keys enabled (`PRAGMA foreign_keys = ON;`).
+   - Executes parameterized SQL queries and handles low-level data access.
 
-The `generated/` folder must not be edited manually, since its contents are recreated every time the generation command is executed.
+---
 
-Whenever `api/openapi.json` is modified, run again:
+## Features
 
-```bash
-npm run generate
-```
+- **Contract-First API**: The REST interface is defined in `api/openapi.json` and converted into an Express routing layer using [OpenAPI Generator](https://openapi-generator.tech/).
+- **Multi-Tier Separation**: Decoupled Adapter, Controller, Service, and Database tiers for maintainability and testability.
+- **Session-Based Authentication**: Secure authentication using Passport.js (`local` strategy with salted bcrypt hashes) and Express sessions.
+- **HATEOAS Compliant**: Hypermedia links embedded in responses (`self`, related resources, and RFC 5988-compliant pagination controls: `first`, `prev`, `next`, `last`).
+- **Validation**: Schema-based request body validation using JSON Schema Draft-7 and Ajv.
+- **Interactive Documentation**: Integrated Swagger UI available at runtime.
 
-## Integration
+---
 
-The main parts to complete are:
-
-1. `api/openapi.json` – define the REST API, including paths, operations, parameters, responses, and authentication requirements.
-2. `json-schemas/` – define the JSON Schemas used by the API. These schemas can be referenced from the OpenAPI document using `$ref`.
-3. `components/` – replace all occurrences of the placeholder `/change/me` with the correct API URLs.
-4. `controllers/` – implement the controller logic and connect each operation to the provided services.
-
-The business logic is already provided in the `service/` folder.
-
-Request validation and API routing are automatically handled according to the OpenAPI specification.
-
-### Controller Mapping
-
-The generated routing layer uses the first OpenAPI `tag` and the `operationId` of each operation to determine which controller must handle the request.
-
-For example:
-
-```yaml
-tags:
-  - ApiFilmsPublic
-operationId: getPublicFilms
-```
-
-corresponds to the controller file:
+## Project Structure
 
 ```text
-controllers/ApiFilmsPublic.js
+├── api/
+│   └── openapi.json          # OpenAPI 3.0 contract specification
+├── components/               # Data models and SQLite database connection
+├── controllers/              # Application controllers and HATEOAS link injection
+│   ├── Api.js
+│   ├── Films.js
+│   ├── Reviews.js
+│   ├── Users.js
+│   └── link.js               # HATEOAS link generator
+├── database/
+│   ├── databaseV1.db         # SQLite database file
+│   └── passwords_databases.txt # Test accounts credentials
+├── json-schemas/             # JSON Schemas (Draft-7) for request validation
+├── openapi-templates/        # Custom Mustache templates for OpenAPI generator
+├── service/                  # Business logic and database access layer
+├── utils/                    # Helper utilities, constants, response writer
+├── generated/                # Auto-generated adapter/routing layer (do not edit)
+├── index.js                  # Express application entry point
+├── passport-config.js        # Passport local strategy configuration
+└── package.json
 ```
 
-which must export:
+---
 
-```js
-module.exports.getPublicFilms = ...
-```
+## Prerequisites
 
-Therefore:
+- **Node.js** (v20 or v22 recommended)
+- **npm** (bundled with Node.js)
+- **Java** (JRE 11+ or 17+, required by `@openapitools/openapi-generator-cli`)
 
-```text
-first tag    -> controller file name
-operationId  -> exported function name
-```
+---
 
-Operations sharing the same first tag are handled by the same controller file.
+## Installation & Setup
 
-The generated files inside `generated/` may use different internal names and must not be edited manually.
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/sdoublesm/dsp-film-manager.git
+   cd dsp-film-manager
+   ```
 
-## Running the Server
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
 
-After generating the routing layer, start the server with:
+3. **Generate the adapter / routing layer:**
+   The routing layer is generated from `api/openapi.json` into the `generated/` folder:
+   ```bash
+   npm run generate
+   ```
+   > **Note:** Run `npm run generate` every time you modify `api/openapi.json`.
+
+---
+
+## Running the Application
+
+Start the Express server:
 
 ```bash
 npm start
 ```
 
-The server is available at:
+The service will run at:
+- **API Base URL**: `http://localhost:3001`
+- **Interactive Swagger UI**: `http://localhost:3001/docs`
 
-```text
-http://localhost:3001
+---
+
+## Authentication & Test Credentials
+
+The API protects private resources using cookie-based session authentication (`cookieAuth`).
+
+To authenticate, send a `POST` request to `/api/users/authenticator` with a JSON payload:
+
+```json
+{
+  "email": "user.dsp@polito.it",
+  "password": "password"
+}
 ```
 
-Swagger UI can be used to inspect and test the API at:
+### Pre-configured Test Accounts
 
-```text
-http://localhost:3001/docs
-```
+| Email | Password | Name |
+| :--- | :--- | :--- |
+| `user.dsp@polito.it` | `password` | User |
+| `frank.stein@polito.it` | `shelley97` | Frank |
+| `karen.makise@polito.it` | `fg204v213` | Karen |
+| `rene.regeay@polito.it` | `historia` | Rene |
+| `beatrice.golden@polito.it` | `seagulls` | Beatrice |
+| `arthur.pendragon@polito.it` | `holygrail` | Arthur |
 
-## Testing the App
+Full database credentials can also be found in `database/passwords_databases.txt`.
 
-Use the following credentials for testing:
+---
 
-Username: `user.dsp@polito.it`
+## Configuration
 
-Password: `password`
-
-In the `database` folder you can find a [list](/database/passwords_databases.txt) of the users with their relative passwords.
-
-## Pagination
-
-To set the number of items per page in API pagination, modify the `ELEMENTS_IN_PAGE` variable in `utils/constants.js`.
+- **Pagination**: The number of elements per page can be configured in `utils/constants.js` via the `ELEMENTS_IN_PAGE` constant.
+- **Port**: The default listening port is `3001` (configured in `index.js`).
