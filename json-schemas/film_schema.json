@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Film",
+  "description": "This is a JSON schema for the film data structure",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Unique identifier of the film data structure in the Film Manager platform"
+    },
+    "title": {
+      "type": "string",
+      "description": "Textual title of the film"
+    },
+    "owner": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The id of the film data structure owner, i.e., the user who created it"
+    },
+    "private": {
+      "type": "boolean",
+      "description": "Set to true if the film data structure is marked as private, false if it is public"
+    },
+    "watchDate": {
+      "type": "string",
+      "format": "date",
+      "description": "The date when the film was watched by the owner (YYYY-MM-DD)"
+    },
+    "rating": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10,
+      "description": "Non-negative integer number (maximum 10) expressing the rating the owner has given to the film"
+    },
+    "favorite": {
+      "type": "boolean",
+      "default": false,
+      "description": "Set to true if that film is among the favourite ones of the user, false otherwise"
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "owner",
+    "private"
+  ],
+  "additionalProperties": false,
+  "if": {
+    "properties": {
+      "private": {
+        "const": false
+      }
+    },
+    "required": [
+      "private"
+    ]
+  },
+  "then": {
+    "allOf": [
+      {
+        "not": {
+          "required": [
+            "watchDate"
+          ]
+        }
+      },
+      {
+        "not": {
+          "required": [
+            "rating"
+          ]
+        }
+      },
+      {
+        "not": {
+          "required": [
+            "favorite"
+          ]
+        }
+      }
+    ]
+  }
+}

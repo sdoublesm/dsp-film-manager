@@ -1,0 +1,12 @@
+┌─────────────────────────────────┐        ┌───────────────────────────────────┐
+│  json-schemas/film_schema.json  │        │       api/openapi.json (Film)     │
+├─────────────────────────────────┤        ├───────────────────────────────────┤
+│ • Standard: JSON Schema Draft-7 │        │ • Standard: OpenAPI 3.0.1         │
+│ • Eseguito da: Ajv in Node.js   │        │ • Eseguito da: Swagger UI / Gen   │
+│ • Scopo: Validazione input      │        │ • Scopo: Contratto REST & Output  │
+│ • Include: regole logiche       │        │ • Include: link HATEOAS           │
+│   (if private==false -> no voto)│        │   (self, reviews, paginazione)    │
+└─────────────────────────────────┘        └───────────────────────────────────┘
+
+in openapi.json usiamo altri schemi 
+perché openapi non supoprta json draft-7

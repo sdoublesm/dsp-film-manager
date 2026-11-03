@@ -1,0 +1,11 @@
+endpoint:
+api/films/public
+
+in openapi document:
+tags: 
+- ApiFilmsPublic
+operationId: getPublicFilms (method inside controller)
+
+tag = controller file name
+ApiFilmsPublic.js
+must export module.exports.getPublicFilms

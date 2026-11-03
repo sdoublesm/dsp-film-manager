@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Review",
+  "description": "This is a JSON schema for the review data structure",
+  "type": "object",
+  "properties": {
+    "filmId": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Unique identifier of the film for which a review invitation has been issued"
+    },
+    "reviewerId": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Unique identifier of the user who has received the review invitation"
+    },
+    "completed": {
+      "type": "boolean",
+      "description": "Set to true if the review has been completed, false otherwise"
+    },
+    "reviewDate": {
+      "type": "string",
+      "format": "date",
+      "description": "The date when the review has been completed by the invited user (YYYY-MM-DD)"
+    },
+    "rating": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10,
+      "description": "Non-negative integer number (maximum 10) expressing the rating of the review the user has completed"
+    },
+    "review": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "A textual description of the review (no longer than 1000 characters)"
+    }
+  },
+  "required": [
+    "filmId",
+    "reviewerId",
+    "completed"
+  ],
+  "additionalProperties": false,
+  "if": {
+    "properties": {
+      "completed": {
+        "const": true
+      }
+    },
+    "required": [
+      "completed"
+    ]
+  },
+  "then": {
+    "required": [
+      "reviewDate",
+      "rating",
+      "review"
+    ]
+  },
+  "else": {
+    "allOf": [
+      {
+        "not": {
+          "required": [
+            "reviewDate"
+          ]
+        }
+      },
+      {
+        "not": {
+          "required": [
+            "rating"
+          ]
+        }
+      },
+      {
+        "not": {
+          "required": [
+            "review"
+          ]
+        }
+      }
+    ]
+  }
+}
